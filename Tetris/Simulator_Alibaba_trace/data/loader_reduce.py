@@ -40,7 +40,7 @@ def read_iterator(filepath):
 def InstanceConfigLoader(vm_cpu_request_file,test_array):
     res = []
     instance_configs = {} # 存储实例配置信息
-    inc_mac_id_file = 'container_machine_id.csv' # 容器与机器对应关系的文件路径
+    inc_mac_id_file = 'data/container_machine_id.csv' # 容器与机器对应关系的文件路径
     vm_mac = {} # 这里没用到这个变量
     machine_configs = {} # 存储机器配置信息 【machine_id : MachineConfig】
     # 读取所有vm的资源
@@ -88,7 +88,7 @@ def InstanceConfigLoader(vm_cpu_request_file,test_array):
     
     import random
     
-    fileName = "3989.csv"
+    fileName = "data/mac_keys/3989.csv"
     dataframe= pd.read_csv(fileName)
     
     # 根据test_array中的每个元组，生成机器和实例的配置信息
