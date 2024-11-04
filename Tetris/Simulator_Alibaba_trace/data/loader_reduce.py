@@ -97,7 +97,7 @@ def InstanceConfigLoader(vm_cpu_request_file,test_array):
         containerNum = tup[1]
         mac_nodes = dataframe["macid"].values.tolist()[:nodeNum] # 读取前nodeNum个macid
         mac = { k:mac_new[k]for k in  mac_nodes } # 【macid：[inc_id, ...]】
-        print(f'len of mac is len(mac)')
+        print(f"Len of mac is {len(mac)}")
         print(mac)
         # summac = sum([ len(mac[mac_nodes[i]]) for i in range(nodeNum)])
         summac = sum([ len(v) for v in mac.values()]) # 所有机器上的容器数量

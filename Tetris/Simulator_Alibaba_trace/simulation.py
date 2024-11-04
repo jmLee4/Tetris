@@ -35,7 +35,7 @@ class Simulation(object):
     
     
     def finished(self,clock):
-        if clock>=len(self.cluster.instances[0].cpulist)-2:
+        if clock>=len(self.cluster.instances[0].cpu_list)-2:
             return True
         
         return False

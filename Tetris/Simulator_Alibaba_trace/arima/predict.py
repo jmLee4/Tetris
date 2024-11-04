@@ -60,8 +60,8 @@ def pqd(model):
 
 
 def arima_speed_test(cluster:Cluster,inc_id,instance,end,W):
-    cpuHist = np.array(instance.cpulist[0:int(end+1)])
-    memHist = np.array(instance.memlist[0:int(end+1)])
+    cpuHist = np.array(instance.cpu_list[0:int(end + 1)])
+    memHist = np.array(instance.mem_list[0:int(end + 1)])
     cpu_wrong ,mem_wrong= 0,0
     inc_id_old = str(cluster.inc_ids[inc_id])
     
@@ -71,7 +71,7 @@ def arima_speed_test(cluster:Cluster,inc_id,instance,end,W):
         model_cpu = cluster.inccpu_model[inc_id]
         next_cpu = model_cpu.forecast(W,alphas=0.01)
         flag = True
-        cluster.inccpu_model[inc_id] = model_cpu.append(np.array([instance.cpulist[int(end):int(end+1)]]))
+        cluster.inccpu_model[inc_id] = model_cpu.append(np.array([instance.cpu_list[int(end):int(end + 1)]]))
     except:
         # print(f'\t\tcontainer inc_id = {inc_id} 的 cpu model不行')
         cpu_wrong +=1
@@ -82,7 +82,7 @@ def arima_speed_test(cluster:Cluster,inc_id,instance,end,W):
     try:            
         model_mem =  cluster.incmem_model[inc_id]
         next_mem = model_mem.forecast(W,alphas=0.01)           
-        cluster.incmem_model[inc_id] = model_mem.append(np.array([instance.cpulist[int(end):int(end+1)]]))            
+        cluster.incmem_model[inc_id] = model_mem.append(np.array([instance.cpu_list[int(end):int(end + 1)]]))
     except:
         # print(f'\t\tcontainer inc_id = {inc_id} 的 mem model不行')
         mem_wrong += 1
@@ -109,8 +109,8 @@ def using_model(cluster:Cluster,W,end,forecast_mem,forecast_cpu):
         # next_cpu,next_mem =  arima_speed_test(cluster,inc_id,instance,end,W)
         # print(f'\t\tat instance {inc_id} spending {time()-s}s')
         # 不预测
-        next_cpu = instance.cpulist[end:end+W]
-        next_mem = instance.memlist[end:end+W]
+        next_cpu = instance.cpu_list[end:end + W]
+        next_mem = instance.mem_list[end:end + W]
         forecast_mem[inc_id] =next_mem
         forecast_cpu[inc_id] = next_cpu
 
@@ -133,7 +133,7 @@ def arimas(cluster,end,W):
     using_model(cluster,W,int(end),forecast_mem,forecast_cpu)
     inc_cpu_pre = np.array([predicts for inc_id,predicts in forecast_cpu.items()])
     inc_mem_pre = np.array([predicts  for inc_id,predicts  in forecast_mem.items()])
-    inc_cpu_actual = np.array([inc.cpulist[end:end+W] for inc_id,inc in cluster.instances.items()])
-    inc_mem_actual = np.array([inc.memlist[end:end+W] for inc_id,inc in cluster.instances.items()])
+    inc_cpu_actual = np.array([inc.cpu_list[end:end + W] for inc_id,inc in cluster.instances.items()])
+    inc_mem_actual = np.array([inc.mem_list[end:end + W] for inc_id,inc in cluster.instances.items()])
     
     return inc_cpu_pre,inc_mem_pre,inc_cpu_actual,inc_mem_actual

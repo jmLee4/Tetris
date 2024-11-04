@@ -16,7 +16,7 @@ class ScheduleSys:
         self.memdict = {} # podname:memlist
         # self.nodeNum = nodeNum
         # self.podNum = podNum
-        self.getPodNodNum()
+        self.getPodNodeNum()
         self.algorithm = Scheduler()
         self.algoName = algo
         self.nodes = {}
@@ -148,7 +148,7 @@ class ScheduleSys:
                         "memory_curve":[],"cpu_curve":[]}
                 container = Container(container_config)
                 cluster.containers[container.id] = container
-                node_id = container.mac_id
+                node_id = container.machine_id
                 node = cluster.nodes.get(node_id, None)
                 
                 assert node is not None
@@ -156,8 +156,8 @@ class ScheduleSys:
             
             if algoName == "sxy":
                     container = self.cluster.containers[pod_id]
-                    container.memlist.append(mem)
-                    container.cpulist.append(cpu)
+                    container.mem_list.append(mem)
+                    container.cpu_list.append(cpu)
             # if t==0:
             nodes[nodename].add(podname)
                 
@@ -218,6 +218,8 @@ class ScheduleSys:
         if t == 0 and self.algoName == "sxy":
             self.cpudict[podname] = [0.05, 0.1, 0.1, 0.05, 0.05, 0.05, 0.1, 0.1, 0.05]
             self.memdict[podname] = [0.1, 0.05, 0.05, 0.1, 0.05, 0.05, 0.1, 0.1, 0.05]
+        # 这段硬编码的数据
+
         self.cpudict[podname].append(cpuperc)
         self.memdict[podname].append(memperc)
         # print(intcpu)
@@ -279,11 +281,11 @@ class ScheduleSys:
         
         print(f"\nat time {time()-self.startTime}: \n{cmd.read()} \n")
         print(self.cpudict)
-        cmd.close();
+        cmd.close()
         return True
     
     
-    def getPodNodNum(self):
+    def getPodNodeNum(self):
         with os.popen("kubectl get pod -o wide") as po:
             res = po.read()
             lines = res.split("\n")
@@ -292,7 +294,8 @@ class ScheduleSys:
         with os.popen("kubectl get node -o wide") as po:
             res = po.read()
             lines = res.split("\n")
-        self.nodeNum = len(lines)-3
+        self.nodeNum = len(lines)-2
+        # Changed: 原本是3，不理解为什么是3，应该就是2，去除Header和末尾的空行
         
 
 if __name__ =="__main__":

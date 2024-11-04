@@ -59,10 +59,8 @@ class Machine(object):
         nextclock = clock+1
         instances = self.instances
         self.len = len(instances)
-        self.cpuPluPredict = {v.id: np.array(
-            v.cpulist[clock:nextclock]+v.predict(clock, w)[clock]["cpu"]) for v in instances.values()}
-        self.memPluPredict = {v.id: np.array(
-            v.memlist[clock:nextclock]+v.predicts[clock]["mem"]) for v in instances.values() for v in instances.values()}
+        self.cpuPluPredict = {v.id: np.array(v.cpu_list[clock:nextclock] + v.predict(clock, w)[clock]["cpu"]) for v in instances.values()}
+        self.memPluPredict = {v.id: np.array(v.mem_list[clock:nextclock] + v.predict_result[clock]["mem"]) for v in instances.values()}
 
     # 计算机器中所有实例的CPU使用总和和内存使用总和
     def cupSumAndMemSum(self):

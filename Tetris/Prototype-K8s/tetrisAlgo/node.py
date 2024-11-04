@@ -51,10 +51,8 @@ class Node(object):
         containers = self.containers
         self.len = len(containers)
 
-        self.cpuPluPredict = {v.id: np.array(
-            v.cpulist[clock:nextclock]+v.predict(clock, w)[clock]["cpu"]) for v in containers.values()}
-        self.memPluPredict = {v.id: np.array(
-            v.memlist[clock:nextclock]+v.predicts[clock]["mem"]) for v in containers.values() for v in containers.values()}
+        self.cpuPluPredict = {v.id: np.array(v.cpu_list[clock:nextclock] + v.predict(clock, w)[clock]["cpu"]) for v in containers.values()}
+        self.memPluPredict = {v.id: np.array(v.mem_list[clock:nextclock] + v.predict_result[clock]["mem"]) for v in containers.values()}
 
     def cupSumAndMemSum(self):
 

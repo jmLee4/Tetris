@@ -155,7 +155,7 @@ class ScheduleSys:
             for pod_name in migrated_pod_list:
                 if self.algoName == "tetris":
                     container = self.clusetrpods[self.podnameToidx[pod_name]]
-                    lastnode = self.clusternodes[container.mac_id]
+                    lastnode = self.clusternodes[container.machine_id]
                     lastnode.pop(container.id)
                     cnode.push(container)
                 if pod_name[0:2] != 'tc' and self.old_pod_name[pod_name]==node_name:
@@ -316,14 +316,14 @@ class ScheduleSys:
                     container = Container(container_config)
                     cluster.containers[container.id] = container
                     
-                    assert container.mac_id == node_id
+                    assert container.machine_id == node_id
                     # node = cluster.nodes.get(nod_id, None)
                     node = cluster.nodes[node_id]
                     assert node is not None
                     node.push(container)
                     
-                    container.memlist.append(mem)
-                    container.cpulist.append(cpu)
+                    container.mem_list.append(mem)
+                    container.cpu_list.append(cpu)
                 
                 if  t!=0:
                     # the new node
@@ -350,8 +350,8 @@ class ScheduleSys:
                         if container.id not in node.containers:
                             cluster.nodes[container.node.id].pop(container.id)
                             node.push(container)
-                    container.memlist.append(mem)
-                    container.cpulist.append(cpu)
+                    container.mem_list.append(mem)
+                    container.cpu_list.append(cpu)
                 
                 pod_id+=1 # sxyalgo
             

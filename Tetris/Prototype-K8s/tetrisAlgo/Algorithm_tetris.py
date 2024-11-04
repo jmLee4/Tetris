@@ -45,7 +45,7 @@ class Algorithm_tetris(Algorithm):
 
     def SchedulePolicy(self, Z, K, W, v, M, a, b, y, now):
         cluster = self.cluster
-        lenx = len(cluster.containers[0].cpulist)
+        lenx = len(cluster.containers[0].cpu_list)
         s = time()
 
         cost_min, balfirst = cluster.cost_all_pm_first(now, W, b)

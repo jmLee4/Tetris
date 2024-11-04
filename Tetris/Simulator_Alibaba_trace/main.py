@@ -47,7 +47,7 @@ if __name__ == "__main__":
         metricFile = os.path.join(os.getcwd(), str(len(config[1])) + "-metric.csv")
         motivationFile = os.path.join(os.getcwd(), str(len(config[1])) + "-motivation.csv")
 
-        print("#############################", i, "#############################")
+        print("#############################", i+1, "#############################")
         
         simulator = Simulation(config, algorithm, metricFile, motivationFile, args)
         simulator.run()

@@ -42,7 +42,7 @@ class Cluster(object):
             inc = Container(container_config)
             self.containers[inc.id] = inc
             
-            node_id = inc.mac_id
+            node_id = inc.machine_id
             node = self.nodes.get(node_id, None)
             
             assert node is not None

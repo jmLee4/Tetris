@@ -69,7 +69,7 @@ class Cluster(object):
             inc = Instance(instance_config)
             self.instances[inc.id] = inc
             
-            machine_id = inc.mac_id
+            machine_id = inc.machine_id
             machine = self.machines.get(machine_id, None)
            
             assert machine is not None
