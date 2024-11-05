@@ -112,9 +112,9 @@ class Algorithm_tetris(Algorithm):
     def findOverAndUnder(self, cluster: Cluster, b, y, t):
 
         pm_cpu_t = {k: cpusumlist[t]
-                    for k, cpusumlist in cluster.cpusum.items()}
+                    for k, cpusumlist in cluster.sum_of_cpu.items()}
         pm_mem_t = {k: cpusumlist[t]
-                    for k, cpusumlist in cluster.memsum.items()}
+                    for k, cpusumlist in cluster.sum_of_mem.items()}
 
         params = self.params
         allcpuValue = np.array(list(pm_cpu_t.values()))
@@ -170,8 +170,8 @@ class Algorithm_tetris(Algorithm):
     def RandomGreedySimplify_new(self, M, a, b, v, t, findOV, candidate, CPU_t=None, MEM_t=None):
         cluster = self.cluster
         nodes = cluster.nodes
-        cpusum = cluster.cpusum
-        memsum = cluster.memsum
+        cpusum = cluster.sum_of_cpu
+        memsum = cluster.sum_of_mem
 
         cpu_t = list(cluster.vm_cpu[:, t])
         mem_t = list(cluster.vm_mem[:, t])

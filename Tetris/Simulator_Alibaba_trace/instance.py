@@ -46,7 +46,7 @@ class Instance(object):
         
         self.predict_cpu_list.append(model.predict(n_periods=w).tolist())
         self.predict_mem_list.append(model.predict(n_periods=w).tolist())
-        # Model只传入了cpu_list数据，为什么可以预测mem_list数据？
+        # 【?】Model只传入了cpu_list数据，为什么可以预测mem_list数据？
         
         predict_cpu = self.cpu_list + self.predict_cpu_list[-1]
         predict_mem = self.mem_list + self.predict_mem_list[-1]

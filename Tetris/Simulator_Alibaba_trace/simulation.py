@@ -13,6 +13,7 @@ class Simulation(object):
         if args is not None:
             # self.drl = args.drl
             self.sand = args.sandpiper
+
         self.env = simpy.Environment()
         self.cluster = Cluster()
         self.cluster.add_old_new(machine_ids, instance_ids)

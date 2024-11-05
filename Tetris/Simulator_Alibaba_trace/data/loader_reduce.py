@@ -7,10 +7,14 @@ from machine import MachineConfig
 """
 加载数据集，以文件名作为ID，记录对应的CPU和内存请求曲线
 """
-def read_all_files(filepath):
+def read_all_files(filepath, max_files=None):
     cpu_list = {}
     mem_list = {}
     files = os.listdir(filepath)
+
+    # Debug的时候没有必要每次都加载所有数据集，太慢
+    if max_files is not None:
+        files = files[:max_files]
 
     for idx, file in enumerate(files):
         filename = os.path.join(filepath, file)
@@ -26,6 +30,7 @@ def read_all_files(filepath):
 
 """
 加载数据集
+    我理解加载数据集，创建MachineConfig和InstanceConfig对象，不应该这么复杂，最多是重新映射两者的ID
     :param instance_cpu_and_mem_files: 数据集存放路径
     :param test_array: 测试集，结构为：[[节点数，容器数], ...]
 """
@@ -98,7 +103,7 @@ def load_instance_data(instance_cpu_and_mem_files, test_array):
                 instance_id_2_instance_config[instance_id] = instance_config
         print(f'Len of instance_configs is {len(instance_id_2_instance_config)}')
 
-        # 重新分配Machine和Instance的ID，没太懂这一步的意义
+        # 重新分配Machine和Instance的ID，前面还没涉及到Config对象
         i = 0
         j = 0
         new_machines  = {}

@@ -5,31 +5,26 @@ from pyDOE import lhs
 from abc import ABC, abstractmethod
 import csv
 
-
 class Algorithm(ABC):
     @abstractmethod
     def __call__(self, *args):
         pass
 
-
-class Algorithm_tetris(Algorithm):
-    def __call__(self, cluster: Cluster, now, motivationFile):
-        self.motivationFile = motivationFile
+class AlgorithmTetris(Algorithm):
+    def __call__(self, cluster:Cluster, now, motivation_file):
+        self.motivation_file = motivation_file
         self.cluster = cluster
         self.params = {"w": 6, "z": range(20), "k": 5, "u": 0.8, "v": 0.4, "a": 0.004,
-                       "b": 0.0025, "y": 0.25, "N": len(cluster.instances),
-                       "M": len(cluster.machines)}
+                       "b": 0.0025, "y": 0.25, "N": len(cluster.instances), "M": len(cluster.machines)}
         
         if now == 0:
-            with open(motivationFile, "w") as f:
+            with open(motivation_file, "w") as f:
                 writer = csv.writer(f)
                 writer.writerow(['time', 'container', 'metric'])
         value, eval_bal, eval_mig = self.schedule(now)
         
         return value, eval_bal, eval_mig
-    
-    
-    # @profile
+
     def schedule(self, now):
         start = time()
         print(f"Starting schedule at time {now}")
@@ -39,15 +34,12 @@ class Algorithm_tetris(Algorithm):
         after = time()
         
         if min_z != -1:
-            print("at ", now, "花费了", after-start, "s metric=",
-                  min_z, eval_bal, eval_mig, value)
+            print("at ", now, "花费了", after-start, "s metric=", min_z, eval_bal, eval_mig, value)
         else:
-            print("at ", now, "没有最优，总共花费了", after -
-                  start, eval_bal, eval_mig, value)
+            print("at ", now, "没有最优，总共花费了", after - start, eval_bal, eval_mig, value)
         elapsed = time() - start
-        print(f"Finished schedule at time {now}, took {elapsed:.2f} seconds")
+        print(f"Finished schedule at time {now}, took {elapsed:.2f}s")
         return value, eval_bal, eval_mig
-
     
     def SchedulePolicy(self, Z, K, W, v, M, a, b, y, now):
         cluster = self.cluster
@@ -118,7 +110,7 @@ class Algorithm_tetris(Algorithm):
         motivation = cluster.freshStructPmVm(candidate_copy, min_z, now, W, b)
         print(f'motivation is {motivation}')
         if len(motivation) > 0:
-            motivationFile = self.motivationFile
+            motivationFile = self.motivation_file
             
             with open(motivationFile, "a") as f:
                 writer = csv.writer(f)
@@ -140,9 +132,9 @@ class Algorithm_tetris(Algorithm):
     
     def findOverAndUnder(self, cluster: Cluster, b, y, t):
         pm_cpu_t = {k: cpusumlist[t]
-                    for k, cpusumlist in cluster.cpusum.items()}
+                    for k, cpusumlist in cluster.sum_of_cpu.items()}
         pm_mem_t = {k: cpusumlist[t]
-                    for k, cpusumlist in cluster.memsum.items()}
+                    for k, cpusumlist in cluster.sum_of_mem.items()}
 
         params = self.params
         allcpuValue = np.array(list(pm_cpu_t.values()))
@@ -196,8 +188,8 @@ class Algorithm_tetris(Algorithm):
     def RandomGreedySimplify_new(self, M, a, b, v, t, findOV, candidate, CPU_t=None, MEM_t=None):
         cluster = self.cluster
         machines = cluster.machines
-        cpusum = cluster.cpusum
-        memsum = cluster.memsum
+        cpusum = cluster.sum_of_cpu
+        memsum = cluster.sum_of_mem
 
         cpu_t = list(cluster.vm_cpu[:, t])
         mem_t = list(cluster.vm_mem[:, t])

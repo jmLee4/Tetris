@@ -3,28 +3,30 @@ import csv
 import os
 
 class Scheduler(object):
-    def __init__(self,env,algorithm,sand,metricFile,motivationFile):
-        self.env = env
+    def __init__(self, env, algorithm, sand, metric_file, motivation_file):
+
+        # 通过Attach的方式设置
         self.simulation = None
         self.cluster = None
+
+        self.env = env
         self.algorithm = algorithm
         self.dir = os.getcwd()
-        self.motivationFile = motivationFile
-        self.metricFile=metricFile
         self.sand = sand
-        
-        with open(motivationFile,"w") as f:
-                writer = csv.writer(f)
-                writer.writerow(['time','container','metric'])
-        with open(self.metricFile,'w') as f:
+
+        self.metric_file = metric_file
+        self.motivation_file = motivation_file
+
+        with open(self.motivation_file, "w") as f:
             writer = csv.writer(f)
-            writer.writerow(['clock','eval_bal','eval_mig','sum','sums','time','total_time','violation'])
-        
+            writer.writerow(["time", "container", "metric"])
+        with open(self.metric_file, "w") as f:
+            writer = csv.writer(f)
+            writer.writerow(["clock", "eval_bal", "eval_mig", "sum", "sums", "time", "total_time", "violation"])
     
     def attach(self, simulation):
         self.simulation = simulation
         self.cluster = simulation.cluster
-    
     
     def run(self):
         sums = 0
@@ -32,29 +34,27 @@ class Scheduler(object):
         algorithm = self.algorithm
         
         while not self.simulation.finished(self.env.now):
-            start = time()
-            end = self.env.now
+            start_of_time = time()
+            end_of_time = self.env.now
 
-            algo_start = time()
-            value,eval_bal,eval_mig = algorithm(self.cluster, self.env.now,self.motivationFile)
-            algo_end = time() - algo_start
-            print(f"Algorithm execution time: {algo_end:.2f}s")
+            value, eval_bal, eval_mig = algorithm(self.cluster, self.env.now, self.motivation_file)
+            time_used = time() - start_of_time
+            print(f"Algorithm execution time: {time_used:.2f}s")
+
             sums += value
-            after = time()-start
-            alltime+=after
+            alltime += time_used
 
             load_start = time()
-            vms = [ len(v) for k,v in self.cluster.isAllUnderLoad(self.env.now,self.sand).items()]
-            load_end = time() - load_start
-            print(f"isAllUnderLoad execution time: {load_end:.2f}s")
+            vms = [len(v) for k, v in self.cluster.isAllUnderLoad(self.env.now, self.sand).items()]
+            print(f"isAllUnderLoad execution time: {time() - load_start:.2f}s")
             vmlen = sum(vms)
-            
-            with open(self.metricFile,'a') as f:
+
+            with open(self.metric_file, "a") as f:
                 writer = csv.writer(f)
-                writer.writerow([end,eval_bal,eval_mig,value,sums,after,alltime,vmlen])
+                writer.writerow([end_of_time, eval_bal, eval_mig, value, sums, time_used, alltime, vmlen])
             yield self.env.timeout(1)
         
-        print('now finish time:', self.env.now)
+        print("Now finish time:", self.env.now)
 
 
     

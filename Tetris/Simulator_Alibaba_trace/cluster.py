@@ -9,15 +9,15 @@ class Cluster(object):
         self.machines = {}
         self.instances = {}  
         
-        self.cpusum = None  
-        self.memsum = None
-        self.cpusum_copy = None
-        self.memsum_copy = None
+        self.sum_of_cpu = None
+        self.sum_of_mem = None
+        self.sum_of_cpu_copy = None
+        self.sum_of_mem_copy = None
         
         self.vm_cpu = None
-        self.vm_mem=None
+        self.vm_mem = None
         
-        self.pm_cost= None
+        self.pm_cost = None
         self.pm_cost_copy = None
         self.t_pm_cost_motivatin = {}
 
@@ -89,8 +89,8 @@ class Cluster(object):
     
     def cost_all_pm_first(self,clock,w,b):
         cost_min = 0
-        cpusum = self.cpusum = {}
-        memsum = self.memsum = {}
+        cpusum = self.sum_of_cpu = {}
+        memsum = self.sum_of_mem = {}
         vm_cpu = {}
         vm_mem = {}
         pm_cost = {}
@@ -124,8 +124,8 @@ class Cluster(object):
         assert len(self.vm_cpu) == len(self.instances)
         self.pm_cost = pm_cost
         self.pm_cost_copy = {k:v for k,v in pm_cost.items() }
-        self.cpusum_copy = {k:v for k,v in cpusum .items()}
-        self.memsum_copy = {k:v for k,v in memsum .items()}
+        self.sum_of_cpu_copy = {k:v for k,v in cpusum .items()}
+        self.sum_of_mem_copy = {k:v for k,v in memsum .items()}
         self.modifyPmCopy = []
         self.t_pm_cost_motivatin[clock] = {k:v for k,v in pm_cost.items() }
         
@@ -138,8 +138,8 @@ class Cluster(object):
         mig = 0
         bal = 0
         mac_modify = set()
-        cpusum = self.cpusum
-        memsum = self.memsum
+        cpusum = self.sum_of_cpu
+        memsum = self.sum_of_mem
         pm_cost = self.pm_cost
           
         candidate_s_d = [ x for v in list(candidate.values()) for x in v[-1]]
@@ -172,18 +172,18 @@ class Cluster(object):
     
     
     def backZero(self,z,clock,w):
-        cpusum_copy = self.cpusum_copy 
-        memsum_copy = self.memsum_copy
+        cpusum_copy = self.sum_of_cpu_copy
+        memsum_copy = self.sum_of_mem_copy
         pm_cost_copy = self.pm_cost_copy
         self.pm_cost_copy = {k:v for k,v in pm_cost_copy.items() }
-        self.cpusum_copy = {k:v for k,v in cpusum_copy.items()}
-        self.memsum_copy = {k:v for k,v in memsum_copy.items()}
+        self.sum_of_cpu_copy = {k:v for k,v in cpusum_copy.items()}
+        self.sum_of_mem_copy = {k:v for k,v in memsum_copy.items()}
         
         machines = self.machines
         instances = self.instances
         self.pm_cost = {k:v for k,v in pm_cost_copy.items() }
-        self.cpusum = {k:v for k,v in cpusum_copy.items()}
-        self.memsum = {k:v for k,v in memsum_copy.items()}
+        self.sum_of_cpu = {k:v for k,v in cpusum_copy.items()}
+        self.sum_of_mem = {k:v for k,v in memsum_copy.items()}
         
         print(f"len of modifyPmCopy: {len(self.modifyPmCopy)}")
         macids = set()
@@ -349,8 +349,8 @@ class Cluster(object):
 
     def isAllUnderLoad(self,clock,sand=False):
         machines = self.machines
-        cpusum = self.cpusum
-        memsum = self.memsum
+        cpusum = self.sum_of_cpu
+        memsum = self.sum_of_mem
         cpu_capacity = 20 if sand else 30
         
         try:
