@@ -54,6 +54,6 @@ class Instance(object):
         self.cpu = predict_cpu[0]
         self.mem = predict_mem[0]
         
-        predict_result[clock] = {"cpu":predict_cpu, "mem":predict_mem}
+        predict_result[clock] = {"cpu": predict_cpu, "mem": predict_mem}
         
         return predict_result

@@ -32,12 +32,13 @@ if __name__ == "__main__":
 
     metric_log_filename = "metric"
 
-    from data.loader_reduce import InstanceConfigLoader
+    from data.loader_reduce import load_instance_data
     
     # test_array = [[3989, 67437], [100, 1700], [500, 8500],
     #               [1000, 17000], [2000, 34000], [3000, 51000]]
+    # test_array [[节点数, 容器数], ...]
     test_array = [[10, 170]]
-    configs = InstanceConfigLoader(filepath, test_array) # 这里怀疑是filepath的文件有问题
+    configs = load_instance_data(filepath, test_array)
 
     algorithm = Algorithm_tetris()
     
