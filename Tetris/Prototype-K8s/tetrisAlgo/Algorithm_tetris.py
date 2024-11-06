@@ -48,7 +48,7 @@ class Algorithm_tetris(Algorithm):
         lenx = len(cluster.containers[0].cpu_list)
         s = time()
 
-        cost_min, balfirst = cluster.cost_all_pm_first(now, W, b)
+        cost_min, balfirst = cluster.calculate_cluster_cost(now, W, b)
         print("算法开始执行 计算 cost_min    消耗了 %.2f s, cost_min = %.3f " %
               (time()-s, cost_min))
         s = time()
@@ -127,8 +127,8 @@ class Algorithm_tetris(Algorithm):
         thr_CPU = y * (max_CPU - avg_CPU) + avg_CPU
         thr_MEM = y * (max_MEM - avg_MEM) + avg_MEM
 
-        cpu_t = cluster.vm_cpu[:, t]
-        mem_t = cluster.vm_mem[:, t]
+        cpu_t = cluster.instance_cpu[:, t]
+        mem_t = cluster.instance_mem[:, t]
         cpumem = np.vstack((cpu_t, mem_t)).T
         cpumem_desc = cpumem[np.lexsort(cpumem[:, ::-1].T)]
         thresh_out = (thr_CPU ** 2 + b * thr_MEM ** 2) / 2
@@ -147,7 +147,7 @@ class Algorithm_tetris(Algorithm):
                 thresh_in = thresh_in - temp
                 break
 
-        allVmCsPluMs = cluster.pm_cost
+        allVmCsPluMs = cluster.machine_cost
 
         try:
             bal = {pmid: v[t] for pmid, v in allVmCsPluMs.items()}
@@ -173,8 +173,8 @@ class Algorithm_tetris(Algorithm):
         cpusum = cluster.sum_of_cpu
         memsum = cluster.sum_of_mem
 
-        cpu_t = list(cluster.vm_cpu[:, t])
-        mem_t = list(cluster.vm_mem[:, t])
+        cpu_t = list(cluster.instance_cpu[:, t])
+        mem_t = list(cluster.instance_mem[:, t])
 
         over, under = findOV
         if CPU_t is None or MEM_t is None:
@@ -257,8 +257,8 @@ class Algorithm_tetris(Algorithm):
             if len(pms) != 1:
                 Vm[vmid] = pms
         print("Vm:", Vm)
-        vm_cpu = cluster.vm_cpu
-        vm_mem = cluster.vm_mem
+        vm_cpu = cluster.instance_cpu
+        vm_mem = cluster.instance_mem
         cpu_t = vm_cpu[:, t]
         mem_t = vm_mem[:, t]
         cost_bal = 0

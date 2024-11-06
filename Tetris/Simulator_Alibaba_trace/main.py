@@ -57,7 +57,9 @@ if __name__ == "__main__":
 
 """
 【注意事项】
-    1. 代码变量命名的时候有涉及到 vm 的概念，初步看指的是Instance
+    1. 代码变量命名的时候有涉及到 vm 的概念，初步看指的是 Instance
+    2. 代码中还有 pm 的概念，我怀疑早期被用于虚拟机放置，所以 vm 对应 Virtual Machine、pm 对应 Physical Machine
+       映射过来就是：vm 对应 Instance、pm 对应 Machine
 【总结】
     1. loader_reduce.py 加载数据集，生成Machine和Instance的配置信息
     2. simulation.py 模拟器类，初始化Cluster和Scheduler，运行模拟器

@@ -56,58 +56,48 @@ class Machine(object):
 
     # 根据时间窗口w大小，获取机器中每个实例的CPU使用情况列表
     def getEveryTimeCpuList(self, clock, w):
-        nextclock = clock+1
         instances = self.instances
         self.len = len(instances)
-        self.cpuPluPredict = {v.id: np.array(v.cpu_list[clock:nextclock] + v.predict(clock, w)[clock]["cpu"]) for v in instances.values()}
-        self.memPluPredict = {v.id: np.array(v.mem_list[clock:nextclock] + v.predict_result[clock]["mem"]) for v in instances.values()}
+        self.cpuPluPredict = {v.id: np.array(v.cpu_list[clock:clock+1] + v.predict(clock, w)[clock]["cpu"]) for v in instances.values()}
+        self.memPluPredict = {v.id: np.array(v.mem_list[clock:clock+1] + v.predict_result[clock]["mem"]) for v in instances.values()}
 
     # 计算机器中所有实例的CPU使用总和和内存使用总和
-    def cupSumAndMemSum(self):
-        self.cpu_sum_w = np.sum(
-            np.array([v for k, v in self.cpuPluPredict.items()]), axis=0)
-        self.mem_sum_w = np.sum(
-            np.array([v for k, v in self.memPluPredict.items()]), axis=0)
+    def calcCpuSumAndMemSum(self):
+        self.cpu_sum_w = np.sum(np.array([v for k, v in self.cpuPluPredict.items()]), axis=0)
+        self.mem_sum_w = np.sum(np.array([v for k, v in self.memPluPredict.items()]), axis=0)
 
-    # 计算机器在指定时间范围内的成本
-    def cost_first(self, clock, w, b=0.0025):
+    # 计算Machine在指定时间范围内的成本
+    def calculate_cost(self, clock, w, b=0.0025):
         self.getEveryTimeCpuList(clock, w)
-        self.cupSumAndMemSum()
+        self.calcCpuSumAndMemSum()
 
-        csplums = []
-        pm_cost = 0
+        instance_cpu = np.array([v for k, v in self.cpuPluPredict.items()])
+        instance_mem = np.array([v for k, v in self.memPluPredict.items()])
+        csplums = [0.0 for _ in range(w)]   # 至今不懂csplums是什么意思
 
-        cpu_vm = np.array([v for k, v in self.cpuPluPredict.items()])
-        mem_vm = np.array([v for k, v in self.memPluPredict.items()])
-        csplums = [0.0 for i in range(w)]
-        pm_cost = 0
-        
-        for i in range(len(cpu_vm)-1):
+        for i in range(len(instance_cpu)-1):
             for t in range(w):
-                c = cpu_vm[i][t] * np.sum(cpu_vm[i+1:, t])
-                m = mem_vm[i][t] * np.sum(mem_vm[i+1:, t])
+                c = instance_cpu[i][t] * np.sum(instance_cpu[i+1:, t])
+                m = instance_mem[i][t] * np.sum(instance_mem[i+1:, t])
+                # 似乎对应论文中的公式(1)，但没有减去平均值；而且b取值0.0025也太小了，几乎只考虑CPU资源，合理吗
                 csplums[t] += c + b * m
-        
+
+        # 首先这个循环是可以合并到上面去的；其次减去0.5是为了归一化？csplums的取值原先只有[0, 1]吗？
         for t in range(w):
             if csplums[t] > 0.5:
                 csplums[t] -= 0.5
-        pm_cost = np.sum(csplums)
+        machine_cost = np.sum(csplums)
 
         self.CsPluMs = csplums
-        self.nowPluPredictCost_w[clock] = pm_cost
+        self.nowPluPredictCost_w[clock] = machine_cost
 
         return csplums[0]
 
     # 获取指定时间点的成本值
     def getnowPluPredictCost(self, clock, w, b):
         if clock not in self.nowPluPredictCost_w or self.nowPluPredictCost_w[clock] is None:
-            self.cost_first(clock, w, b)
+            self.calculate_cost(clock, w, b)
         return self.nowPluPredictCost_w[clock]
-
-    # 检查是否可以在指定时间点添加指定CPU和内存容量的实例到机器中
-    def canAddorNot(self, cpu, mem, t):
-        return self.cpu_sum[t]+cpu < self.cpu_capacity \
-            and self.mem_sum[t] + mem < self.mem_capacity
 
     # 将指定id的实例从机器中迁出，返回迁出操作内存消耗
     def migrateOut(self, vmid, t):
@@ -141,7 +131,7 @@ class Machine(object):
     # 计算执行一次容器迁移后的成本
     def afterOneContainerMigration(self, clock, w, b):
         self.getEveryTimeCpuList(clock, w)
-        self.cupSumAndMemSum()
+        self.calcCpuSumAndMemSum()
         csplums = []
         pm_cost = 0
         cpu_vm = np.array([v for k, v in self.cpuPluPredict.items()])

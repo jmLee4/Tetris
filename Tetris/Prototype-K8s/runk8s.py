@@ -1,30 +1,20 @@
-from dataclasses import dataclass
 import os
-import numpy as np
-import pandas as pd
-from io import StringIO, BytesIO
-# from real.sxyAlgo.algorithm import Scheduler
-from tetrisAlgo.algorithm import Scheduler
-from time import sleep,time
-from sys import exit
 import csv
+from tetrisAlgo.algorithm import Scheduler
+from time import sleep, time
+from sys import exit
 from operator import eq
 
 class ScheduleSys:
     def __init__(self,algo) -> None:
-        self.cpudict = {} # podname:cpulist
-        self.memdict = {} # podname:memlist
-        # self.nodeNum = nodeNum
-        # self.podNum = podNum
+        self.cpu_dict = {}
+        self.mem_dict = {}
         self.getPodNodeNum()
         self.algorithm = Scheduler()
         self.algoName = algo
         self.nodes = {}
         self.pods = set()
         self.startTime = time()
-        
-        pass
-    
     
     def schedule(self):
         t = 0
@@ -57,14 +47,14 @@ class ScheduleSys:
             
             # 根据algoName的取值选择相应的调度算法
             if self.algoName == "sandpiper":
-                newnodes = self.algorithm(self.nodes,self.cpudict,self.memdict,self.algoName) #调度算法后生成新的node pod分配方案
+                newnodes = self.algorithm(self.nodes, self.cpu_dict, self.mem_dict, self.algoName) #调度算法后生成新的node pod分配方案
             
             elif self.algoName == "sxy":
                 # if t>20:
                 #     newnodes = self.algorithm(self.nodes,self.cpudict,self.memdict,self.algoName,self.cluster,t)
                 # else:
                 #     newnodes = self.nodes
-                newnodes = self.algorithm(self.nodes,self.cpudict,self.memdict,self.algoName,self.cluster,t)
+                newnodes = self.algorithm(self.nodes, self.cpu_dict, self.mem_dict, self.algoName, self.cluster, t)
             
             elif self.algoName == "drl":
                 pass
@@ -119,7 +109,7 @@ class ScheduleSys:
         pods = self.pods
         nodes = self.nodes
         
-        for podname in self.cpudict.keys():
+        for podname in self.cpu_dict.keys():
             with os.popen("kubectl get pod -o wide|grep '"+podname+ " ' | awk '{print $9}'") as p :
                 pods.add(podname)
                 nodename = p.read()[0:-1] # k8s-node1 k8s-node2 etc.
@@ -139,8 +129,8 @@ class ScheduleSys:
                     node.attach(self)
             
             pod_id = int(podname[-1:])
-            cpu = self.cpudict[podname][-1]
-            mem = self.memdict[podname][-1]
+            cpu = self.cpu_dict[podname][-1]
+            mem = self.mem_dict[podname][-1]
             
             if isSxy:
                 container_config = {"containerName":podname,"id":pod_id,"node_id":node_id,\
@@ -164,8 +154,8 @@ class ScheduleSys:
     # 获取指定podname的CPU和内存使用情况，并将获取到的数据存储到字典中
     def getCpuMemNow(self,podname,t=0):
         """resource comsumption"""
-        cpudict  = self.cpudict
-        memdict = self.memdict
+        cpudict  = self.cpu_dict
+        memdict = self.mem_dict
         
         if podname not in cpudict:
             cpudict[podname] = []
@@ -216,12 +206,12 @@ class ScheduleSys:
         memperc = intmem / 4096 * 100 # /(4*1024)*100
         
         if t == 0 and self.algoName == "sxy":
-            self.cpudict[podname] = [0.05, 0.1, 0.1, 0.05, 0.05, 0.05, 0.1, 0.1, 0.05]
-            self.memdict[podname] = [0.1, 0.05, 0.05, 0.1, 0.05, 0.05, 0.1, 0.1, 0.05]
+            self.cpu_dict[podname] = [0.05, 0.1, 0.1, 0.05, 0.05, 0.05, 0.1, 0.1, 0.05]
+            self.mem_dict[podname] = [0.1, 0.05, 0.05, 0.1, 0.05, 0.05, 0.1, 0.1, 0.05]
         # 这段硬编码的数据
 
-        self.cpudict[podname].append(cpuperc)
-        self.memdict[podname].append(memperc)
+        self.cpu_dict[podname].append(cpuperc)
+        self.mem_dict[podname].append(memperc)
         # print(intcpu)
         # assert 1==0
     
@@ -280,7 +270,7 @@ class ScheduleSys:
         cmd = os.popen("kubectl get pod -o wide") # 打开一个管道来执行命令并返回一个文件对象
         
         print(f"\nat time {time()-self.startTime}: \n{cmd.read()} \n")
-        print(self.cpudict)
+        print(self.cpu_dict)
         cmd.close()
         return True
     

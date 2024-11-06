@@ -7,14 +7,10 @@ from machine import MachineConfig
 """
 加载数据集，以文件名作为ID，记录对应的CPU和内存请求曲线
 """
-def read_all_files(filepath, max_files=None):
+def read_all_files(filepath):
     cpu_list = {}
     mem_list = {}
     files = os.listdir(filepath)
-
-    # Debug的时候没有必要每次都加载所有数据集，太慢
-    if max_files is not None:
-        files = files[:max_files]
 
     for idx, file in enumerate(files):
         filename = os.path.join(filepath, file)

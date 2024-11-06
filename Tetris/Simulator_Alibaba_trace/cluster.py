@@ -14,10 +14,10 @@ class Cluster(object):
         self.sum_of_cpu_copy = None
         self.sum_of_mem_copy = None
         
-        self.vm_cpu = None
-        self.vm_mem = None
+        self.instance_cpu = None
+        self.instance_mem = None
         
-        self.pm_cost = None
+        self.machine_cost = None
         self.pm_cost_copy = None
         self.t_pm_cost_motivatin = {}
 
@@ -81,55 +81,56 @@ class Cluster(object):
         cost_min = 0
         
         for pm in machines.values(): 
-            v = pm.cost_first(clock,w,b)
+            v = pm.calculate_cost(clock, w, b)
            
             cost_min += v
         return cost_min
     
-    
-    def cost_all_pm_first(self,clock,w,b):
-        cost_min = 0
-        cpusum = self.sum_of_cpu = {}
-        memsum = self.sum_of_mem = {}
-        vm_cpu = {}
-        vm_mem = {}
-        pm_cost = {}
+    # 计算所有节点(整个集群)的成本
+    # 参考Ⅲ.A，集群的成本等于Server上每种资源的负载不均衡度
+    def calculate_cluster_cost(self, clock, w, b):
+
+        sum_of_cpu = self.sum_of_cpu = {}
+        sum_of_mem = self.sum_of_mem = {}
+        instance_cpu_record = {}
+        instance_mem_record = {}
+        machine_cost = {}
         machines = self.machines
-        bal = 0
-        
-        for pm in machines.values(): 
-            v = pm.getnowPluPredictCost(clock,w,b)
-            pm_cost[pm.id] = pm.CsPluMs 
+
+        sum_of_cost, balance = 0, 0
+        for machine in machines.values():
+            cost = machine.getnowPluPredictCost(clock, w, b)
+            machine_cost[machine.id] = machine.CsPluMs
             
             try:
-                bal+=pm_cost[pm.id][0]
+                balance += machine_cost[machine.id][0]
             except:
-                bal +=0
-                pm_cost[pm.id]=np.array([0 for x in range(w)])
+                balance += 0
+                machine_cost[machine.id] = np.array([0 for _ in range(w)])
             
-            cpusum [pm.id] = pm.cpu_sum_w
-            memsum [pm.id] = pm.mem_sum_w
-            vm_cpu.update(pm.cpuPluPredict)
-            vm_mem.update(pm.memPluPredict)
+            sum_of_cpu[machine.id] = machine.cpu_sum_w
+            sum_of_mem[machine.id] = machine.mem_sum_w
+            instance_cpu_record.update(machine.cpuPluPredict)
+            instance_mem_record.update(machine.memPluPredict)
             
-            cost_min += v
+            sum_of_cost += cost
         
-        vm_cpu = sorted(vm_cpu.items(),key=lambda x:x[0])
-        vm_mem = sorted(vm_mem.items(),key=lambda x:x[0])
+        instance_cpu_record = sorted(instance_cpu_record.items(),key=lambda x:x[0])
+        instance_mem_record = sorted(instance_mem_record.items(),key=lambda x:x[0])
         
-        self.vm_cpu = np.array([v for k,v in vm_cpu])
-        self.vm_mem = np.array([v for k,v in vm_mem])
+        self.instance_cpu = np.array([v for k, v in instance_cpu_record])
+        self.instance_mem = np.array([v for k, v in instance_mem_record])
         
-        print(len(vm_cpu),len(self.instances),len(vm_cpu))
-        assert len(self.vm_cpu) == len(self.instances)
-        self.pm_cost = pm_cost
-        self.pm_cost_copy = {k:v for k,v in pm_cost.items() }
-        self.sum_of_cpu_copy = {k:v for k,v in cpusum .items()}
-        self.sum_of_mem_copy = {k:v for k,v in memsum .items()}
+        print(len(instance_cpu_record),len(self.instances),len(instance_cpu_record))
+        assert len(self.instance_cpu) == len(self.instances)
+        self.machine_cost = machine_cost
+        self.pm_cost_copy = {k:v for k,v in machine_cost.items() }
+        self.sum_of_cpu_copy = {k:v for k,v in sum_of_cpu .items()}
+        self.sum_of_mem_copy = {k:v for k,v in sum_of_mem .items()}
         self.modifyPmCopy = []
-        self.t_pm_cost_motivatin[clock] = {k:v for k,v in pm_cost.items() }
+        self.t_pm_cost_motivatin[clock] = {k:v for k,v in machine_cost.items() }
         
-        return cost_min,bal
+        return sum_of_cost, balance
     
     
     def costForMigration(self,candidate:Dict,clock,t,w,b,a,M):
@@ -140,7 +141,7 @@ class Cluster(object):
         mac_modify = set()
         cpusum = self.sum_of_cpu
         memsum = self.sum_of_mem
-        pm_cost = self.pm_cost
+        pm_cost = self.machine_cost
           
         candidate_s_d = [ x for v in list(candidate.values()) for x in v[-1]]
         mac_modify.update(candidate_s_d)
@@ -165,7 +166,7 @@ class Cluster(object):
     
     
     def NoMigration(self,t):
-        pm_cost = self.pm_cost
+        pm_cost = self.machine_cost
         PmCost = np.sum([ v[t] for k,v in pm_cost.items() ])
         
         return PmCost
@@ -181,7 +182,7 @@ class Cluster(object):
         
         machines = self.machines
         instances = self.instances
-        self.pm_cost = {k:v for k,v in pm_cost_copy.items() }
+        self.machine_cost = {k:v for k,v in pm_cost_copy.items()}
         self.sum_of_cpu = {k:v for k,v in cpusum_copy.items()}
         self.sum_of_mem = {k:v for k,v in memsum_copy.items()}
         
