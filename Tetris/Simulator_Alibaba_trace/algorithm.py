@@ -42,20 +42,20 @@ class AlgorithmTetris(Algorithm):
 
     # 在特定的时间片(timeslot)调度容器
     def schedule(self, timeslot):
-        start = time()
-        print(f"Starting schedule at time {timeslot}")
+        start_time = time()
+        print(f"开始时间片(Timeslot)第 {timeslot} 调度")
         params = self.params
-        min_z, eval_bal, eval_mig, value = self.tetris_schedule(params["z"], params["k"], params["w"], params["v"],
-                                                                params["M"], params["a"], params["b"], params["y"],
-                                                                timeslot)
-        after = time()
+        min_z_record, eval_bal, eval_mig, value = self.tetris_schedule(params["z"], params["k"], params["w"],
+                                                                       params["v"], params["M"], params["a"],
+                                                                       params["b"], params["y"], timeslot)
+        finish_time = time()
         
-        if min_z != -1:
-            print("at ", timeslot, "花费了", after - start, "s metric=", min_z, eval_bal, eval_mig, value)
+        if min_z_record != -1:
+            print(f"Timeslot {timeslot}，在第 {min_z_record} 次迭代中找到更优的迁移方案，耗时 {finish_time - start_time:.2f}s，"
+                  f"负载均衡成本 {eval_bal:.2f}，迁移成本 {eval_mig:.2f}，总成本 {value:.2f}")
         else:
-            print("at ", timeslot, "没有最优，总共花费了", after - start, eval_bal, eval_mig, value)
-        elapsed = time() - start
-        print(f"Finished schedule at time {timeslot}, took {elapsed:.2f}s")
+            print(f"Timeslot {timeslot}，没有更优的迁移方案，耗时 {finish_time - start_time:.2f}s，"
+                  f"负载均衡成本 {eval_bal:.2f}，迁移成本 {eval_mig:.2f}，总成本 {value:.2f}")
         return value, eval_bal, eval_mig
 
     # Tetris调度算法，对应Algo.1
@@ -63,8 +63,8 @@ class AlgorithmTetris(Algorithm):
         cluster = self.cluster
         lenx = len(cluster.instances[0].cpu_list)
         mark_time = time()
-        cost_min, balfirst = cluster.calculate_cluster_cost(timeslot, W, b)
-        print("算法执行，计算 cost_min 消耗 %.2fs, cost_min = %.3f" % (time()-mark_time, cost_min))
+        cluster_cost, balfirst = cluster.calculate_cluster_cost(timeslot, W, b)
+        print("算法执行，计算 cluster_cost 消耗 %.2fs, cluster_cost = %.3f" % (time()-mark_time, cluster_cost))
 
         # Phase Ⅰ: Server Classification
         mark_time = time()
@@ -74,8 +74,9 @@ class AlgorithmTetris(Algorithm):
 
         # Phase Ⅱ: Container Scheduling
         candidate_copy = {}
-        min_z, balf, migf, valuef = -1, balfirst, 0, balfirst
-        print(f'cost_min is {cost_min}')
+        # min_z_record: Cose最小对应的采样次数，初始为-1，如果返回时还是-1，说明没有找到更优解
+        min_z_record, balf, migf, valuef = -1, balfirst, 0, balfirst
+        print(f"当前集群Cost: {cluster_cost}，开始采样计算")
         for z in Z:
             cost = 0
             bal, mig, value = 0, 0, 0
@@ -106,23 +107,26 @@ class AlgorithmTetris(Algorithm):
                         mig, bal, value = 0, cost, cost
                     continue
                 
-                migx, balx, valuex = cluster.costForMigration(candidate, timeslot, t, W, b, a, M)
+                migx, balx, valuex = cluster.calculate_migrate_cost(candidate, timeslot, t, W, b, a, M)
                 cost += valuex
                 
                 if t == 0:
                     mig, bal, value = migx, balx, valuex
                 
-                if cost > cost_min:
+                if cost > cluster_cost:
+                    # cost 超过了 cluster_cost，提前结束
                     break
-            print("z=%d cost计算消耗了 %.2f s, current cost = %.3f " % (z, time()-s, cost))
-            if cost < cost_min:
-                cost_min = cost
-                min_z, balf, migf, valuef = z, bal, mig, value
+
+            print("[采样轮次Z=%d] Cost计算消耗%.2fs，当前Cost: %.3f" % (z, time()-mark_time, cost))
+            if cost < cluster_cost:
+                # 更新 cluster_cost
+                cluster_cost = cost
+                min_z_record, balf, migf, valuef = z, bal, mig, value
             cluster.backZero(z, timeslot, W)
 
-        print('开始计算motivation')
-        motivation = cluster.freshStructPmVm(candidate_copy, min_z, timeslot, W, b)
-        print(f'motivation is {motivation}')
+        # 基于计算结果进行Instance的调度
+        motivation = cluster.remap_instance_to_machine(candidate_copy, min_z_record, timeslot, W, b)
+        print(f"Motivation: {motivation}")
         if len(motivation) > 0:
             motivationFile = self.motivation_file
             
@@ -132,25 +136,25 @@ class AlgorithmTetris(Algorithm):
                 for containerId, metric in motivation.items():
                     writer.writerow([timeslot, containerId, metric])
 
-        return min_z, balf, migf, valuef
+        return min_z_record, balf, migf, valuef
 
     """
     原函数名是 findOverAndUnder，我理解对应Algo.1中的 server classification 阶段
     找到一个上界和下界，进而可以划分出2个Node集合：待迁出Node集合和待迁入Node集合
         :param cluster: Cluster对象
         :param b:  Beta，β，内存资源相比于CPU资源的归一化参数，见公式(1)
-        :param y: 
-        :param t: 时间片(timeslot)
+        :param y:  归一化参数，暂时不了解作用，未在论文中体现
+        :param timeslot: 时间片
         
         :returns: migrate_out_machines, migrate_in_machines
         :returns: 超过阈值的Machine列表（待迁出），低于阈值的Machine列表（待迁入）
     """
-    def server_classification(self, cluster:Cluster, b, y, t):
+    def server_classification(self, cluster:Cluster, b, y, timeslot):
         params = self.params
 
         # 获取t时刻的CPU和MEM数据
-        machine_cpu_data = {k: cpu_sum_list[t] for k, cpu_sum_list in cluster.sum_of_cpu.items()}
-        machine_mem_data = {k: mem_sum_list[t] for k, mem_sum_list in cluster.sum_of_mem.items()}
+        machine_cpu_data = {k: cpu_sum_list[timeslot] for k, cpu_sum_list in cluster.sum_of_cpu.items()}
+        machine_mem_data = {k: mem_sum_list[timeslot] for k, mem_sum_list in cluster.sum_of_mem.items()}
         machine_cpu_data = np.array(list(machine_cpu_data.values()))
         machine_mem_data = np.array(list(machine_mem_data.values()))
 
@@ -174,8 +178,8 @@ class AlgorithmTetris(Algorithm):
         #          thresh_in = (avg_CPU ** 2 + b * avg_MEM ** 2) / 2
         # 我理解 thresh_in 是待迁入，所以对应的是 threshold_dest；同理有 thresh_out 对应 threshold_src；之前弄反了
 
-        cpu_t = cluster.instance_cpu[:, t]
-        mem_t = cluster.instance_mem[:, t]
+        cpu_t = cluster.instance_cpu[:, timeslot]
+        mem_t = cluster.instance_mem[:, timeslot]
         cpu_mem = np.vstack((cpu_t, mem_t)).T
         cpu_mem_sorted = cpu_mem[np.lexsort(cpu_mem[:, ::-1].T)]    # 按CPU和内存降序排序
 
@@ -198,10 +202,9 @@ class AlgorithmTetris(Algorithm):
         # 至今理解不了CsPluMs的含义，原代码是：allVmCsPluMs = cluster.pm_cost，明显混用了 vm 和 pm 的概念
         allVmCsPluMs = cluster.machine_cost
 
-        bal = {machine_id: v[t] for machine_id, v in allVmCsPluMs.items()}
-
-        machine_ids = np.array(list(bal.keys()))
-        load_imbalance_degree = np.array(list(bal.values()))
+        machine_id_2_load_imbalance_degree = {machine_id: v[timeslot] for machine_id, v in allVmCsPluMs.items()}
+        machine_ids = np.array(list(machine_id_2_load_imbalance_degree.keys()))
+        load_imbalance_degree = np.array(list(machine_id_2_load_imbalance_degree.values()))
         # 负载不均衡度大于迁出阈值的Machine，即待迁出Machine
         load_over_threshold = np.where(load_imbalance_degree > threshold_src)[0]
         migrate_out_machines = machine_ids[load_over_threshold]

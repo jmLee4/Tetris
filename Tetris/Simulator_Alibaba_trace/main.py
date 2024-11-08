@@ -50,7 +50,7 @@ if __name__ == "__main__":
         metricFile = os.path.join(os.getcwd(), str(len(config[1])) + "-metric.csv")
         motivationFile = os.path.join(os.getcwd(), str(len(config[1])) + "-motivation.csv")
 
-        print("#############################", i+1, "#############################")
+        print("############################# 第", i+1, "组 #############################")
         
         simulator = Simulation(config, algorithm, metricFile, motivationFile, args)
         simulator.run()
@@ -64,5 +64,5 @@ if __name__ == "__main__":
     1. loader_reduce.py 加载数据集，生成Machine和Instance的配置信息
     2. simulation.py 模拟器类，初始化Cluster和Scheduler，运行模拟器
     2.1 创建Cluster对象，添加机器和实例，配置机器和实例
-    2.2 创建Scheduler对象，数据记录到 metricFile 和 motivationFile，运行调度器
+    2.2 创建Scheduler对象，数据记录到 metric_file 和 motivation_file，运行调度器
 """

@@ -87,7 +87,7 @@ class Cluster(object):
         return cost_min
     
     # 计算所有节点(整个集群)的成本
-    # 参考Ⅲ.A，集群的成本等于Server上每种资源的负载不均衡度
+    # 参考Ⅲ.A，集群的成本等于Server上每种资源的负载不均衡度，先不考虑迁移成本
     def calculate_cluster_cost(self, clock, w, b):
 
         sum_of_cpu = self.sum_of_cpu = {}
@@ -132,8 +132,8 @@ class Cluster(object):
         
         return sum_of_cost, balance
     
-    
-    def costForMigration(self,candidate:Dict,clock,t,w,b,a,M):
+    # 计算迁移代价
+    def calculate_migrate_cost(self, candidate:Dict, timeslot, t, w, b, a, M):
         machines = self.machines
         instances = self.instances
         mig = 0
@@ -156,7 +156,7 @@ class Cluster(object):
             machines[destination].migrateIn(instances[vmid],t)
         
         for macid in mac_modify:
-            bal+=machines[macid].afterMigration_cost(clock,t,w,b)
+            bal+=machines[macid].afterMigration_cost(timeslot, t, w, b)
             cpusum[macid] = machines[macid].cpu_sum_w
             memsum[macid] = machines[macid].mem_sum_w
             pm_cost[macid] = machines[macid].CsPluMs_migraton 
@@ -270,8 +270,13 @@ class Cluster(object):
         
     #     self.driftPm[clock]={"outpm":outpm,"afteroutpm":afteroutpm,"inpm":inpm,"afterinpm":afterinpm,"diffout":diffout,"diffin":diffin,"violations":violations}
     #     return motivation
-    
-    def freshStructPmVm(self, candidate_copy, z, clock, w, b):
+
+    """
+    原函数名是 freshStructPmVm，替换 pm 为 machine、vm 为 instance
+    所谓的 freshStruct 是修改结构体，我理解是设置 instance 和 machine_id、设置 machine 拥有的 instance_ids，等价于调度
+    """
+
+    def remap_instance_to_machine(self, candidate_copy, z, clock, w, b):
         if z == -1:
             return {}
 

@@ -92,7 +92,7 @@ class Algorithm_tetris(Algorithm):
                     if t == 0:
                         mig, bal, value = 0, cost, cost
                     continue
-                migx, balx, valuex = cluster.costForMigration(
+                migx, balx, valuex = cluster.calculate_migrate_cost(
                     candidate, now, t, W, b, a, M)
                 cost += valuex
                 if t == 0:
@@ -105,7 +105,7 @@ class Algorithm_tetris(Algorithm):
                 min_z, balf, migf, valuef = z, bal, mig, value
             cluster.backZero(z, now, W)
 
-        migNum = cluster.freshStructPmVm(candidate_copy, min_z, now)
+        migNum = cluster.remap_instance_to_machine(candidate_copy, min_z, now)
 
         return min_z, balf, migf, valuef
 

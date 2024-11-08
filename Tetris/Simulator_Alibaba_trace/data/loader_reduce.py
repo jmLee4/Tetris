@@ -76,6 +76,7 @@ def load_instance_data(instance_cpu_and_mem_files, test_array):
     instance_id_2_instance_config = {} # 存储实例配置信息 {instance_id : InstanceConfig}
     machine_id_2_machine_config = {} # 存储机器配置信息 {machine_id : MachineConfig}
     # 根据test_array中的每个元组，生成Machine和Instance的配置信息
+    print("测试组数：", len(test_array))
     for test_case in test_array:
         # 原本是叫nodeNum和containerNum，能不能统一一下术语，又是Instance又是Container，又是Node又是Machine的；还有命名风格
         # 【?】instance_num没有用到？
@@ -84,7 +85,7 @@ def load_instance_data(instance_cpu_and_mem_files, test_array):
         # 读取前node_num个MachineID
         some_machines = machine_keys["machine_id"].values.tolist()[:machine_num]
         machine = {key : machine_new[key] for key in some_machines}
-        print(f"Len of machine is {len(machine)}")
+        print(f"Machine数量：{len(machine)}")
         
         for machine_id, machine_instance_ids in machine.items():
             machine_config = MachineConfig(machine_id, 30, 100) # CPU和内存容量固定是30和100？
@@ -97,7 +98,7 @@ def load_instance_data(instance_cpu_and_mem_files, test_array):
                 disk_curve = np.zeros_like(cpu_curve)   # disk_curve的意义是？本身就不存在对应的数据
                 instance_config = InstanceConfig(machine_id, instance_id, cpu_curve[0], memory_curve[0], disk_curve, cpu_curve, memory_curve)
                 instance_id_2_instance_config[instance_id] = instance_config
-        print(f'Len of instance_configs is {len(instance_id_2_instance_config)}')
+        print(f"涉及到的Instance数量：{len(instance_id_2_instance_config)}")
 
         # 重新分配Machine和Instance的ID，前面还没涉及到Config对象
         i = 0
@@ -114,10 +115,9 @@ def load_instance_data(instance_cpu_and_mem_files, test_array):
             for instance_id in instance_list:
                 instance_config = instance_id_2_instance_config[instance_id]
                 instance_config.machine_id = machine_config.id
-                instance_config.id = i
+                instance_config.instance_id = i
                 new_instances[i] = instance_config
                 i += 1
         result.append([new_instances, new_machines, machine_ids, instance_ids])
 
-    print(f"Len of result is {len(result)}")
     return result

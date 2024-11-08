@@ -29,7 +29,6 @@ class Simulation(object):
         self.env.run()
 
     def finished(self, clock):
-        # 报错：KeyError 0，并不存在ID为0的Instance
         # 不理解这里为什么要选取ID为0的Instance，最早？而且为什么要-2
         if clock >= len(self.cluster.instances[0].cpu_list)-2:
             return True
