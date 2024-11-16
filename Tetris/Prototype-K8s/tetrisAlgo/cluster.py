@@ -60,9 +60,9 @@ class Cluster(object):
         nodes = self.nodes
         bal = 0
         for pm in nodes.values(): 
-            v = pm.getnowPluPredictCost(clock,w,b)
+            v = pm.get_cost_plus_predict_value(clock, w, b)
         
-            pm_cost[pm.id] = pm.CsPluMs #
+            pm_cost[pm.id] = pm.weighted_cpu_mem_sum #
             try:
                 bal+=pm_cost[pm.id][0]
             except:
@@ -73,8 +73,8 @@ class Cluster(object):
             memsum [pm.id] = pm.mem_sum_w
            
             
-            vm_cpu.update(pm.cpuPluPredict)
-            vm_mem.update(pm.memPluPredict)
+            vm_cpu.update(pm.cpu_plus_predict)
+            vm_mem.update(pm.mem_plus_predict)
             
             cost_min += v
         vm_cpu = sorted(vm_cpu.items(),key=lambda x:x[0])
@@ -155,7 +155,7 @@ class Cluster(object):
                     macids.add(destination)
         
         for macid in macids:
-            nodes[macid].getEveryTimeCpuList(clock,w)
+            nodes[macid].calculate_predict_value_at_clock(clock, w)
        
         self.modifyPmCopy = []
         

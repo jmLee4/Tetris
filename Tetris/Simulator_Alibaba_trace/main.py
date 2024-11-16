@@ -65,4 +65,9 @@ if __name__ == "__main__":
     2. simulation.py 模拟器类，初始化Cluster和Scheduler，运行模拟器
     2.1 创建Cluster对象，添加机器和实例，配置机器和实例
     2.2 创建Scheduler对象，数据记录到 metric_file 和 motivation_file，运行调度器
+
+【笔记】
+    1. 阅读代码比较困惑的地方是变量的类型，比如变量x可能是一个Dict，那Key和Value分别是什么；也可以是个List，那长度是不是固定的w？
+       你觉得它是个值，没准下面就开始对它遍历了；你觉得它是个变量，没准就用clock或timeslot作为Key去取值了
+       这些没法直接看出来，只能通过代码的上下文来推断，或者Debug
 """

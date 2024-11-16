@@ -1,5 +1,7 @@
 import time
 from typing import Dict
+from time import time
+from tqdm import tqdm
 import numpy as np
 from machine import Machine
 from instance import Instance
@@ -97,21 +99,23 @@ class Cluster(object):
         machine_cost = {}
         machines = self.machines
 
-        sum_of_cost, balance = 0, 0
-        for machine in machines.values():
-            cost = machine.getnowPluPredictCost(clock, w, b)
-            machine_cost[machine.id] = machine.CsPluMs
+        sum_of_cost, imbalance = 0, 0
+        for machine in tqdm(machines.values(), desc="计算各个Machine的初始Cost"):
+            # 计算比较耗时，主要是对每个Machine上的每个Instance都调用了ARIMA进行预测
+            cost = machine.get_cost_plus_predict_value(clock, w, b)
+            # machine_id_2_machine_cost，其中 machine_cost 是长度为 w 的列表
+            machine_cost[machine.id] = machine.weighted_cpu_mem_sum
             
             try:
-                balance += machine_cost[machine.id][0]
+                imbalance += machine_cost[machine.id][0]
             except:
-                balance += 0
+                imbalance += 0
                 machine_cost[machine.id] = np.array([0 for _ in range(w)])
             
             sum_of_cpu[machine.id] = machine.cpu_sum_w
             sum_of_mem[machine.id] = machine.mem_sum_w
-            instance_cpu_record.update(machine.cpuPluPredict)
-            instance_mem_record.update(machine.memPluPredict)
+            instance_cpu_record.update(machine.cpu_plus_predict)
+            instance_mem_record.update(machine.mem_plus_predict)
             
             sum_of_cost += cost
         
@@ -120,8 +124,9 @@ class Cluster(object):
         
         self.instance_cpu = np.array([v for k, v in instance_cpu_record])
         self.instance_mem = np.array([v for k, v in instance_mem_record])
-        
-        print(len(instance_cpu_record),len(self.instances),len(instance_cpu_record))
+
+        # 待了解
+        # print(len(instance_cpu_record),len(self.instances),len(instance_cpu_record))
         assert len(self.instance_cpu) == len(self.instances)
         self.machine_cost = machine_cost
         self.pm_cost_copy = {k:v for k,v in machine_cost.items() }
@@ -130,7 +135,7 @@ class Cluster(object):
         self.modifyPmCopy = []
         self.t_pm_cost_motivatin[clock] = {k:v for k,v in machine_cost.items() }
         
-        return sum_of_cost, balance
+        return sum_of_cost, imbalance
     
     # 计算迁移代价
     def calculate_migrate_cost(self, candidate:Dict, timeslot, t, w, b, a, M):
@@ -171,8 +176,7 @@ class Cluster(object):
         
         return PmCost
     
-    
-    def backZero(self,z,clock,w):
+    def recover_cluster(self, z, clock, w):
         cpusum_copy = self.sum_of_cpu_copy
         memsum_copy = self.sum_of_mem_copy
         pm_cost_copy = self.pm_cost_copy
@@ -186,8 +190,8 @@ class Cluster(object):
         self.sum_of_cpu = {k:v for k,v in cpusum_copy.items()}
         self.sum_of_mem = {k:v for k,v in memsum_copy.items()}
         
-        print(f"len of modifyPmCopy: {len(self.modifyPmCopy)}")
-        macids = set()
+        # print(f"len of modifyPmCopy: {len(self.modifyPmCopy)}")
+        machine_ids = set()
         
         if len(self.modifyPmCopy) > 0:
             x = range(len(self.modifyPmCopy)-1,-1,-1)
@@ -199,93 +203,27 @@ class Cluster(object):
                     destination,s = v[0]
                     machines[s].pop(vmid)
                     machines[destination].push(instances[vmid])
-                    macids.add(s)
-                    macids.add(destination)
+                    machine_ids.add(s)
+                    machine_ids.add(destination)
         
-        for macid in macids:
-            machines[macid].getEveryTimeCpuList(clock,w)
+        for machine_id in machine_ids:
+            machines[machine_id].calculate_predict_value_at_clock(clock, w)
         
         self.modifyPmCopy = []
-        
-    
-    # def freshStructPmVm(self,candidate_copy,z,clock,w,b):
-    #     if z==-1:
-    #         return {}
-        
-    #     candidate = candidate_copy[z]
-        
-    #     if len(candidate) == 0:
-    #         print("no migration")
-    #         return {}
-        
-    #     machines = self.machines
-    #     instances = self.instances
-    #     outpm = {v[0][0]:0 for k,v in candidate.items() }
-    #     outpm = {macid:set([v for v in machines[macid].instances.keys()])for macid in outpm.keys()}
-    #     inpm = {v[0][1]:0 for k,v in candidate.items() }
-    #     inpm = {macid:set([v for v in machines[macid].instances.keys()])for macid in inpm.keys()}
-    #     print(f'outpm is {outpm}')
-    #     print(f'inpm is {inpm}')
-    #     motivation = {}
-    #     moti_len = 2
-        
-    #     for vmid,v in candidate.items():
-    #         if (len(v)>1):
-    #             print(v)
-    #             assert 1==0
-            
-    #         s,destination = v[0]
-    #         before_value = []
-    #         after_value = []
-            
-    #         # before
-    #         try:
-    #             for t in range(moti_len):
-    #                 beforePmOutCost = machines[s].afterOneContainerMigration(clock+t,w,b)
-    #                 beforePmInCost = machines[destination].afterOneContainerMigration(clock+t,w,b)
-    #                 before_value.append(beforePmOutCost+beforePmInCost)
-    #                 print(f"计算 before_value 耗时 {time() - start_time:.2f} 秒")
-    #         except Exception as e:
-    #             print(f"计算 before_value 出错: {e}")
-    #         machines[s].pop(vmid)
-    #         machines[destination].push(instances[vmid])
-            
-    #         try:
-    #             for t in range(moti_len):
-    #                 afterPmOutCost = machines[s].afterOneContainerMigration(clock+t,w,b)
-    #                 afterPmInCost = machines[destination].afterOneContainerMigration(clock+t,w,b)
-    #                 after_value.append(afterPmOutCost+afterPmInCost)
-    #         except:
-    #             print()
-            
-    #         motivation[vmid] = [s,destination,before_value,after_value]  
-        
-    #     afteroutpm = {macid:set([v for v in machines[macid].instances.keys()])for macid in outpm.keys()}
-    #     afterinpm = {macid:set([v for v in machines[macid].instances.keys()])for macid in inpm.keys()}
-        
-    #     diffout = {macid:v.difference(afteroutpm[macid])for macid,v in outpm.items()}
-    #     diffin = {macid:afterinpm[macid].difference(v)for macid,v in inpm.items()}
-        
-    #     violations = self.isAllUnderLoad(clock)
-        
-    #     self.driftPm[clock]={"outpm":outpm,"afteroutpm":afteroutpm,"inpm":inpm,"afterinpm":afterinpm,"diffout":diffout,"diffin":diffin,"violations":violations}
-    #     return motivation
 
     """
     原函数名是 freshStructPmVm，替换 pm 为 machine、vm 为 instance
     所谓的 freshStruct 是修改结构体，我理解是设置 instance 和 machine_id、设置 machine 拥有的 instance_ids，等价于调度
     """
 
-    def remap_instance_to_machine(self, candidate_copy, z, clock, w, b):
-        if z == -1:
+    def remap_instance_to_machine(self, z_2_candidate, min_z_record, timeslot, w, b):
+        if min_z_record == -1:
             return {}
 
-        candidate = candidate_copy[z]
+        candidate = z_2_candidate[min_z_record]
         if len(candidate) == 0:
-            print("no migration")
+            print("无法迁移")
             return {}
-
-        from time import time
 
         machines = self.machines
         instances = self.instances
@@ -313,8 +251,8 @@ class Cluster(object):
             try:
                 start_time = time()
                 for t in range(moti_len):
-                    beforePmOutCost = machines[s].afterOneContainerMigration(clock + t, w, b)
-                    beforePmInCost = machines[destination].afterOneContainerMigration(clock + t, w, b)
+                    beforePmOutCost = machines[s].afterOneContainerMigration(timeslot + t, w, b)
+                    beforePmInCost = machines[destination].afterOneContainerMigration(timeslot + t, w, b)
                     before_value.append(beforePmOutCost + beforePmInCost)
                 print(f"计算 before_value 耗时 {time() - start_time:.2f} 秒")
             except Exception as e:
@@ -328,8 +266,8 @@ class Cluster(object):
             try:
                 start_time = time()
                 for t in range(moti_len):
-                    afterPmOutCost = machines[s].afterOneContainerMigration(clock + t, w, b)
-                    afterPmInCost = machines[destination].afterOneContainerMigration(clock + t, w, b)
+                    afterPmOutCost = machines[s].afterOneContainerMigration(timeslot + t, w, b)
+                    afterPmInCost = machines[destination].afterOneContainerMigration(timeslot + t, w, b)
                     after_value.append(afterPmOutCost + afterPmInCost)
                 print(f"计算 after_value 耗时 {time() - start_time:.2f} 秒")
             except Exception as e:
@@ -343,9 +281,9 @@ class Cluster(object):
         diffout = {macid: v.difference(afteroutpm[macid]) for macid, v in outpm.items()}
         diffin = {macid: afterinpm[macid].difference(v) for macid, v in inpm.items()}
 
-        violations = self.isAllUnderLoad(clock)
+        violations = self.isAllUnderLoad(timeslot)
 
-        self.driftPm[clock] = {
+        self.driftPm[timeslot] = {
             "outpm": outpm, "afteroutpm": afteroutpm, "inpm": inpm,
             "afterinpm": afterinpm, "diffout": diffout, "diffin": diffin,
             "violations": violations

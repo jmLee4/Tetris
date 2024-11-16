@@ -43,64 +43,76 @@ class AlgorithmTetris(Algorithm):
     # 在特定的时间片(timeslot)调度容器
     def schedule(self, timeslot):
         start_time = time()
-        print(f"开始时间片(Timeslot)第 {timeslot} 调度")
+        print(f"当前执行时间片(Timeslot)：{timeslot}")
         params = self.params
-        min_z_record, eval_bal, eval_mig, value = self.tetris_schedule(params["z"], params["k"], params["w"],
-                                                                       params["v"], params["M"], params["a"],
-                                                                       params["b"], params["y"], timeslot)
+        min_z_record, imbalance_degree_at_t, migrate_cost_at_t, value = self.tetris_schedule(
+            params["z"], params["k"], params["w"], params["v"], params["M"], params["a"], params["b"], params["y"], timeslot
+        )
         finish_time = time()
         
         if min_z_record != -1:
             print(f"Timeslot {timeslot}，在第 {min_z_record} 次迭代中找到更优的迁移方案，耗时 {finish_time - start_time:.2f}s，"
-                  f"负载均衡成本 {eval_bal:.2f}，迁移成本 {eval_mig:.2f}，总成本 {value:.2f}")
+                  f"负载均衡成本 {imbalance_degree_at_t:.2f}，迁移成本 {migrate_cost_at_t:.2f}，总成本 {value:.2f}")
         else:
             print(f"Timeslot {timeslot}，没有更优的迁移方案，耗时 {finish_time - start_time:.2f}s，"
-                  f"负载均衡成本 {eval_bal:.2f}，迁移成本 {eval_mig:.2f}，总成本 {value:.2f}")
-        return value, eval_bal, eval_mig
+                  f"负载均衡成本 {imbalance_degree_at_t:.2f}，迁移成本 {migrate_cost_at_t:.2f}，总成本 {value:.2f}")
+        return value, imbalance_degree_at_t, migrate_cost_at_t
 
     # Tetris调度算法，对应Algo.1
     def tetris_schedule(self, Z, K, W, v, M, a, b, y, timeslot):
         cluster = self.cluster
-        lenx = len(cluster.instances[0].cpu_list)
+
+        length_of_cpu_list = len(cluster.instances[0].cpu_list)
         mark_time = time()
-        cluster_cost, balfirst = cluster.calculate_cluster_cost(timeslot, W, b)
+        print("算法执行，开始计算 cluster_cost")
+        cluster_cost, cluster_imbalance = cluster.calculate_cluster_cost(timeslot, W, b)
         print("算法执行，计算 cluster_cost 消耗 %.2fs, cluster_cost = %.3f" % (time()-mark_time, cluster_cost))
 
         # Phase Ⅰ: Server Classification
-        mark_time = time()
+
         imbalanced_machines = self.server_classification(cluster, b, y, 0)
-        print("算法执行，计算 imbalanced_machines 消耗了 %.2fs" % (time()-mark_time))
         print("待迁出Node数量：%d，待迁入Node数量：%d" % (len(imbalanced_machines[0]), len(imbalanced_machines[1])))
 
         # Phase Ⅱ: Container Scheduling
-        candidate_copy = {}
+
+        # candidate 本身是个Dict，存储
+        # z_2_candidate 是代码之前的逻辑，暂时理解为需要按 z 记录下每次采样的结果
+        z_2_candidate = {}
         # min_z_record: Cose最小对应的采样次数，初始为-1，如果返回时还是-1，说明没有找到更优解
-        min_z_record, balf, migf, valuef = -1, balfirst, 0, balfirst
-        print(f"当前集群Cost: {cluster_cost}，开始采样计算")
+        min_z_record, imbalance_cost, migrate_cost, all_cost = -1, cluster_imbalance, 0, cluster_imbalance
+        print(f"当前集群Cost: {cluster_cost:.2f}，开始采样计算")
         for z in Z:
+            mark_time = time()
+
             cost = 0
             bal, mig, value = 0, 0, 0
-            CPU_t, MEM_t = None, None
+            machine_cpu_datas_at_t, machine_mem_datas_at_t = None, None
 
+            # 我猜测 bal 是负载不均衡度，mig 是迁移成本，value 是总成本
+            # 但是我不理解 bal|balx|balf、mig|migx|migf 和 value|valuex|valuef 是什么
+
+            # 滑动窗口，每次移动一个时间片
             for t in range(W):
-                if t == 1 and timeslot+W-1 >= lenx:
+                if t == 1 and timeslot + W - 1 >= length_of_cpu_list:
                     break
                 candidate = {}
                 
-                if t != 0 and flag:
+                if t != 0 and is_satisfies_constraints:
                     imbalanced_machines = self.server_classification(cluster, b, y, t)
-                flag = False
-                
+                is_satisfies_constraints = False
+
+                # K次尝试
                 for _ in range(K):
-                    CPU_t, MEM_t, flag = self.RandomGreedySimplify_new(M, a, b, v, t, imbalanced_machines, candidate, CPU_t, MEM_t)
-                    
-                    if flag:
+                    machine_cpu_datas_at_t, machine_mem_datas_at_t, is_satisfies_constraints = self.random_greedy_schedule_containers(M, a, b, v, t, imbalanced_machines, candidate, machine_cpu_datas_at_t, machine_mem_datas_at_t)
+                    # 本次尝试满足约束，结束后面更多的尝试
+                    if is_satisfies_constraints:
                         break
                     candidate.clear()
                 
                 if t == 0:
-                    candidate_copy[z] = candidate
-                if len(candidate) == 0 or flag == False:
+                    z_2_candidate[z] = candidate
+
+                if len(candidate) == 0 or is_satisfies_constraints == False:
                     cost += cluster.NoMigration(t)
                     
                     if t == 0:
@@ -117,26 +129,29 @@ class AlgorithmTetris(Algorithm):
                     # cost 超过了 cluster_cost，提前结束
                     break
 
-            print("[采样轮次Z=%d] Cost计算消耗%.2fs，当前Cost: %.3f" % (z, time()-mark_time, cost))
+            print("[采样轮次Z=%d] 本轮Cost计算消耗 %.2fs，当前Cost: %.3f" % (z, time()-mark_time, cost))
             if cost < cluster_cost:
                 # 更新 cluster_cost
                 cluster_cost = cost
-                min_z_record, balf, migf, valuef = z, bal, mig, value
-            cluster.backZero(z, timeslot, W)
+                min_z_record, imbalance_cost, migrate_cost, all_cost = z, bal, mig, value
+                print("[采样轮次Z=%d] 更新Cost，当前最优Cost: %.3f" % (z, cluster_cost))
 
-        # 基于计算结果进行Instance的调度
-        motivation = cluster.remap_instance_to_machine(candidate_copy, min_z_record, timeslot, W, b)
+            # 计算Cost并不耗时，更耗时的在这一步；原函数名是 backZero，个人理解是恢复集群到初始状态，进行下一轮采样
+            cluster.recover_cluster(z, timeslot, W)
+
+        # 基于计算结果进行Instance的调度，我理解模拟环境下只需更新字段即可，不需要真正迁移
+        motivation = cluster.remap_instance_to_machine(z_2_candidate, min_z_record, timeslot, W, b)
         print(f"Motivation: {motivation}")
         if len(motivation) > 0:
-            motivationFile = self.motivation_file
+            motivation_file = self.motivation_file
             
-            with open(motivationFile, "a") as f:
+            with open(motivation_file, "a") as f:
                 writer = csv.writer(f)
                 
                 for containerId, metric in motivation.items():
                     writer.writerow([timeslot, containerId, metric])
 
-        return min_z_record, balf, migf, valuef
+        return min_z_record, imbalance_cost, migrate_cost, all_cost
 
     """
     原函数名是 findOverAndUnder，我理解对应Algo.1中的 server classification 阶段
@@ -146,8 +161,8 @@ class AlgorithmTetris(Algorithm):
         :param y:  归一化参数，暂时不了解作用，未在论文中体现
         :param timeslot: 时间片
         
-        :returns: migrate_out_machines, migrate_in_machines
-        :returns: 超过阈值的Machine列表（待迁出），低于阈值的Machine列表（待迁入）
+        :returns: migrate_out_machine_ids, migrate_in_machine_ids
+        :returns: 超过阈值的MachineID列表（待迁出），低于阈值的MachineID列表（待迁入）
     """
     def server_classification(self, cluster:Cluster, b, y, timeslot):
         params = self.params
@@ -207,89 +222,96 @@ class AlgorithmTetris(Algorithm):
         load_imbalance_degree = np.array(list(machine_id_2_load_imbalance_degree.values()))
         # 负载不均衡度大于迁出阈值的Machine，即待迁出Machine
         load_over_threshold = np.where(load_imbalance_degree > threshold_src)[0]
-        migrate_out_machines = machine_ids[load_over_threshold]
+        migrate_out_machine_ids = machine_ids[load_over_threshold]
         # 负载不均衡度小于迁入阈值的Machine，即待迁入Machine
         load_under_threshold = np.where(load_imbalance_degree < threshold_dest)[0]
-        migrate_in_machines = machine_ids[load_under_threshold]
+        migrate_in_machine_ids = machine_ids[load_under_threshold]
         
-        return migrate_out_machines, migrate_in_machines
+        return migrate_out_machine_ids, migrate_in_machine_ids
 
-    def RandomGreedySimplify_new(self, M, a, b, v, t, findOV, candidate, CPU_t=None, MEM_t=None):
+    # (1) 从待迁出Node集合中通过LHS随机采样得到一批Pod
+    # (2) 计算各个Pod迁移到待迁入Node的Cost，取Cost最小的迁移方案
+    # (3) 如果所有Pod的调度结果都满足Node剩余资源的约束，则返回True，否则返回False；返回False会进行下一轮抽样尝试，最多由外层尝试K次
+    def random_greedy_schedule_containers(self, M, a, b, v, t, imbalanced_machines, candidate, machine_cpu_datas_at_t=None, machine_mem_datas_at_t=None):
         cluster = self.cluster
         machines = cluster.machines
-        cpusum = cluster.sum_of_cpu
-        memsum = cluster.sum_of_mem
+        sum_of_cpu = cluster.sum_of_cpu
+        sum_of_mem = cluster.sum_of_mem
 
-        cpu_t = list(cluster.instance_cpu[:, t])
-        mem_t = list(cluster.instance_mem[:, t])
+        instance_cpu_datas_at_t = list(cluster.instance_cpu[:, t])
+        instance_mem_datas_at_t = list(cluster.instance_mem[:, t])
 
-        over, under = findOV
-        
-        if CPU_t is None or MEM_t is None:
-            CPU_t = {k: cpusumlist[t] for k, cpusumlist in sorted(
-                cpusum.items(), key=lambda x: x[0])}
-            MEM_t = {k: memsumlist[t] for k, memsumlist in sorted(
-                memsum.items(), key=lambda x: x[0])}
-            CPU_t = np.array(list(CPU_t.values()))
-            MEM_t = np.array(list(MEM_t.values()))
+        migrate_out_machine_ids, migrate_in_machine_ids = imbalanced_machines
 
-        for s in over:
-            machinethis = machines[s]
-            instances = machinethis.instances
-            mig_candi_s = np.array([x for x in instances.keys()])
+        # 感觉代码的写法上有点问题，machine_xxx_datas_at_t 是 t 时刻的资源数据，下面尝试调度后会更新
+        # 但可能调度几个Instance后不满足Algo.1中的约束(16行)，要直接舍弃 machine_xxx_datas_at_t，所以返回None
+        #   如果返回None，下次再尝试会重新计算 machine_xxx_datas_at_t，不受本次影响
+        #   如果不返回None，machine_xxx_datas_at_t 会在下次调用当前函数时作为参数传入，继续累积更新
+        if machine_cpu_datas_at_t is None or machine_mem_datas_at_t is None:
+            machine_cpu_datas_at_t = {k: sum_of_cpu_list[t] for k, sum_of_cpu_list in sorted(sum_of_cpu.items(), key=lambda x: x[0])}
+            machine_mem_datas_at_t = {k: sum_of_mem_list[t] for k, sum_of_mem_list in sorted(sum_of_mem.items(), key=lambda x: x[0])}
+            machine_cpu_datas_at_t = np.array(list(machine_cpu_datas_at_t.values()))
+            machine_mem_datas_at_t = np.array(list(machine_mem_datas_at_t.values()))
 
-            samples = np.ceil(v*len(mig_candi_s))
-            samples = int(samples)
-            lhd = lhs(1, samples)
-            mig_loc = lhd * len(mig_candi_s)
-            mig_loc = mig_loc[:, 0].astype(int)
+        # 从待迁出Machine上通过LSH选择一批Instance进行迁移
+        for machine_id in migrate_out_machine_ids:
+            this_machine = machines[machine_id]
 
-            mig = np.unique(mig_candi_s[mig_loc]).astype(int)
+            all_instances_ids = np.array([x for x in this_machine.instances.keys()])
+
+            samples = int(np.ceil(v * len(all_instances_ids)))
+            lhs_data = lhs(1, samples)
+            ids_index = lhs_data * len(all_instances_ids)
+            ids_index = ids_index[:, 0].astype(int)
+
+            migrate_instance_ids = np.unique(all_instances_ids[ids_index]).astype(int)
             
-            for m in mig:
-                destination = s
-                m = int(m)
+            for migrate_instance_id in migrate_instance_ids:
+                migrate_instance_id = int(migrate_instance_id)
 
-                bal_d_cpu = cpu_t[m] * (CPU_t[s] - cpu_t[m] - CPU_t[under])
-                bal_d_mem = mem_t[m] * (MEM_t[s] - mem_t[m] - MEM_t[under])
+                # Instance CPU * ?
+                bal_d_cpu = instance_cpu_datas_at_t[migrate_instance_id] * (machine_cpu_datas_at_t[machine_id] - instance_cpu_datas_at_t[migrate_instance_id] - machine_cpu_datas_at_t[migrate_in_machine_ids])
+                bal_d_mem = instance_mem_datas_at_t[migrate_instance_id] * (machine_mem_datas_at_t[machine_id] - instance_mem_datas_at_t[migrate_instance_id] - machine_mem_datas_at_t[migrate_in_machine_ids])
 
-                bal_d = np.array(bal_d_cpu + b * bal_d_mem)
-                mig_m = np.array(a * (M-1) * mem_t[m])
-                idx = np.array(np.where(bal_d > mig_m)[0])
+                # 应该对应公式(1)，负载不均衡度由CPU和内存资源共同决定，并且设置归一化参数 b
+                imbalance_cost = np.array(bal_d_cpu + b * bal_d_mem)
+                # 对应公式(3)，迁移代价取决于内存资源
+                migrate_cost = np.array(a * (M-1) * instance_mem_datas_at_t[migrate_instance_id])
+                # 选择负载不均衡度大于迁移代价的Machine，这点在论文中有体现吗？
+                idx = np.array(np.where(imbalance_cost > migrate_cost)[0])
+
                 lendx = len(idx)
-                
                 if lendx == 0:
                     continue
-                allmetric = bal_d
+                allmetric = imbalance_cost
 
-                tmps = {under[idx[i]]: allmetric[idx[i]] for i in range(lendx)}
+                tmps = {migrate_in_machine_ids[idx[i]]: allmetric[idx[i]] for i in range(lendx)}
                 candiUnder = [k for k, v in sorted(
                     tmps.items(), key=lambda x:x[1], reverse=True)]
 
                 for destination in candiUnder:
-                    rescpu = CPU_t[destination]+cpu_t[m]
-                    resmem = MEM_t[destination]+mem_t[m]
-                    
-                    if destination != s and \
-                            rescpu < machinethis.cpu_capacity and \
-                            resmem < machinethis.mem_capacity:
-                        CPU_t[s] -= cpu_t[m]
-                        CPU_t[destination] = rescpu
-                        MEM_t[s] -= mem_t[m]
-                        MEM_t[destination] = resmem
+                    cpu_if_migrate_in = machine_cpu_datas_at_t[destination] + instance_cpu_datas_at_t[migrate_instance_id]
+                    mem_if_migrate_in = machine_mem_datas_at_t[destination] + instance_mem_datas_at_t[migrate_instance_id]
+
+                    # 满足资源容量约束
+                    if destination != machine_id and cpu_if_migrate_in < this_machine.cpu_capacity and mem_if_migrate_in < this_machine.mem_capacity:
+                        machine_cpu_datas_at_t[machine_id] -= instance_cpu_datas_at_t[migrate_instance_id]
+                        machine_cpu_datas_at_t[destination] = cpu_if_migrate_in
+                        machine_mem_datas_at_t[machine_id] -= instance_mem_datas_at_t[migrate_instance_id]
+                        machine_mem_datas_at_t[destination] = mem_if_migrate_in
                         
-                        if m not in candidate:
-                            candidate[m] = [(s, destination)]
+                        if migrate_instance_id not in candidate:
+                            candidate[migrate_instance_id] = [(machine_id, destination)]
                         else:
-                            candidate[m].append((s, destination))
+                            candidate[migrate_instance_id].append((machine_id, destination))
                         break
 
         if len(candidate) > 0:
             for k in machines.keys():
-                if machines[k].cpu_capacity < CPU_t[k] or machines[k].mem_capacity < MEM_t[k]:
+                if machines[k].cpu_capacity < machine_cpu_datas_at_t[k] or machines[k].mem_capacity < machine_mem_datas_at_t[k]:
                     return None, None, False
         
         if len(candidate) <= 0:
             return None, None, False
         
-        return CPU_t, MEM_t, True
+        return machine_cpu_datas_at_t, machine_mem_datas_at_t, True

@@ -103,7 +103,7 @@ class Algorithm_tetris(Algorithm):
             if cost < cost_min:
                 cost_min = cost
                 min_z, balf, migf, valuef = z, bal, mig, value
-            cluster.backZero(z, now, W)
+            cluster.recover_cluster(z, now, W)
 
         migNum = cluster.remap_instance_to_machine(candidate_copy, min_z, now)
 

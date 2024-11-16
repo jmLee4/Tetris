@@ -25,7 +25,7 @@ class Simulation(object):
     
     def run(self):
         self.env.process(self.scheduler.run())
-        print("Start simulation")
+        print("开始模拟实验")
         self.env.run()
 
     def finished(self, clock):

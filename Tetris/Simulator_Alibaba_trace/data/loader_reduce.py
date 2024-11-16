@@ -1,6 +1,7 @@
 import os
 import numpy as np
 import pandas as pd
+from tqdm import tqdm
 from instance import InstanceConfig
 from machine import MachineConfig
 
@@ -11,17 +12,23 @@ def read_all_files(filepath):
     cpu_list = {}
     mem_list = {}
     files = os.listdir(filepath)
+    total_files = len(files)
 
-    for idx, file in enumerate(files):
-        filename = os.path.join(filepath, file)
-        ids = int(filename[filename.rfind("_")+1 : filename.rfind(".")])
-        
-        df = pd.read_csv(filename, header=None)
+    # 读取数据集，用进度条的方式进行可视化
+    with tqdm(total=total_files, desc="加载数据集进度", unit="file") as pbar:
+        for idx, file in enumerate(files):
+            filename = os.path.join(filepath, file)
+            ids = int(filename[filename.rfind("_")+1 : filename.rfind(".")])
 
-        cpu = df[0].values.tolist()
-        mem = df[1].values.tolist()
-        cpu_list[ids] = cpu
-        mem_list[ids] = mem
+            df = pd.read_csv(filename, header=None)
+
+            cpu = df[0].values.tolist()
+            mem = df[1].values.tolist()
+            cpu_list[ids] = cpu
+            mem_list[ids] = mem
+
+            pbar.update(1)
+
     return cpu_list, mem_list
 
 """
@@ -76,7 +83,7 @@ def load_instance_data(instance_cpu_and_mem_files, test_array):
     instance_id_2_instance_config = {} # 存储实例配置信息 {instance_id : InstanceConfig}
     machine_id_2_machine_config = {} # 存储机器配置信息 {machine_id : MachineConfig}
     # 根据test_array中的每个元组，生成Machine和Instance的配置信息
-    print("测试组数：", len(test_array))
+    print(f"测试组数：{len(test_array)}")
     for test_case in test_array:
         # 原本是叫nodeNum和containerNum，能不能统一一下术语，又是Instance又是Container，又是Node又是Machine的；还有命名风格
         # 【?】instance_num没有用到？
@@ -86,7 +93,7 @@ def load_instance_data(instance_cpu_and_mem_files, test_array):
         some_machines = machine_keys["machine_id"].values.tolist()[:machine_num]
         machine = {key : machine_new[key] for key in some_machines}
         print(f"Machine数量：{len(machine)}")
-        
+
         for machine_id, machine_instance_ids in machine.items():
             machine_config = MachineConfig(machine_id, 30, 100) # CPU和内存容量固定是30和100？
             machine_id_2_machine_config[machine_id] = machine_config
