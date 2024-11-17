@@ -3,6 +3,7 @@ import numpy as np
 from cluster import Cluster
 from time import time
 from pyDOE import lhs
+from scipy.stats import qmc
 from abc import ABC, abstractmethod
 
 class Algorithm(ABC):
@@ -11,10 +12,11 @@ class Algorithm(ABC):
         pass
 
 class AlgorithmTetris(Algorithm):
-    def __call__(self, cluster:Cluster, timeslot, motivation_file):
+    def __call__(self, cluster:Cluster, timeslot, motivation_file, sampler):
 
         self.motivation_file = motivation_file
         self.cluster = cluster
+        self.sampler = sampler
 
         # 默认参数
         self.params = {
@@ -260,7 +262,11 @@ class AlgorithmTetris(Algorithm):
             all_instances_ids = np.array([x for x in this_machine.instances.keys()])
 
             samples = int(np.ceil(v * len(all_instances_ids)))
-            lhs_data = lhs(1, samples)
+            # lhs_data = lhs(1, samples)
+            # 测试用，固定每次整体运行的随机数
+            # 注意不是每次调用该函数的随机数，所以sampler是作为参数传入的；换言之，需要在timeslot迭代之前生成sampler
+            lhs_data = self.sampler.random(samples)
+
             ids_index = lhs_data * len(all_instances_ids)
             ids_index = ids_index[:, 0].astype(int)
 

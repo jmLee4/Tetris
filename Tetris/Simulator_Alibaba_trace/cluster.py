@@ -5,6 +5,10 @@ from tqdm import tqdm
 import numpy as np
 from machine import Machine
 from instance import Instance
+import logging
+
+# 配置日志
+logging.basicConfig(filename='cluster_log.txt', level=logging.INFO)
 
 class Cluster(object):
     def __init__(self):
@@ -175,21 +179,29 @@ class Cluster(object):
         PmCost = np.sum([ v[t] for k,v in pm_cost.items() ])
         
         return PmCost
-    
+
     def recover_cluster(self, z, clock, w):
-        cpusum_copy = self.sum_of_cpu_copy
-        memsum_copy = self.sum_of_mem_copy
-        pm_cost_copy = self.pm_cost_copy
-        self.pm_cost_copy = {k:v for k,v in pm_cost_copy.items() }
-        self.sum_of_cpu_copy = {k:v for k,v in cpusum_copy.items()}
-        self.sum_of_mem_copy = {k:v for k,v in memsum_copy.items()}
+        # 这部分代码逻辑很诡异，留档不删，诡异在2点（以CPU为例）：
+        # 1. 这里 sum_of_cpu_copy 和 self.sum_of_cpu_copy 的处理等于没处理，个人理解删掉也无妨
+        # 2. 实际跑完一整个程序下来，sum_of_cpu 和 sum_of_cpu_copy 都是相等的，不理解为什么设置 copy
+        sum_of_cpu_copy = self.sum_of_cpu_copy
+        sum_of_mem_copy = self.sum_of_mem_copy
+        machine_cost_copy = self.pm_cost_copy
+        self.pm_cost_copy = {k:v for k,v in machine_cost_copy.items() }
+        self.sum_of_cpu_copy = {k:v for k,v in sum_of_cpu_copy.items()}
+        self.sum_of_mem_copy = {k:v for k,v in sum_of_mem_copy.items()}
         
         machines = self.machines
         instances = self.instances
-        self.machine_cost = {k:v for k,v in pm_cost_copy.items()}
-        self.sum_of_cpu = {k:v for k,v in cpusum_copy.items()}
-        self.sum_of_mem = {k:v for k,v in memsum_copy.items()}
-        
+        self.machine_cost = {k:v for k,v in machine_cost_copy.items()}
+        self.sum_of_cpu = {k:v for k,v in sum_of_cpu_copy.items()}
+        self.sum_of_mem = {k:v for k,v in sum_of_mem_copy.items()}
+
+        # 检查 self.sum_of_cpu 和 self.sum_of_cpu_copy 是否相等
+        if self.sum_of_cpu != self.sum_of_cpu_copy:
+            logging.info(f'sum_of_cpu: {self.sum_of_cpu}')
+            logging.info(f'sum_of_cpu_copy: {self.sum_of_cpu_copy}')
+
         # print(f"len of modifyPmCopy: {len(self.modifyPmCopy)}")
         machine_ids = set()
         

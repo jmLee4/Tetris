@@ -1,4 +1,5 @@
 from time import time
+from scipy.stats import qmc
 import csv
 import os
 
@@ -23,7 +24,9 @@ class Scheduler(object):
         with open(self.metric_file, "w") as f:
             writer = csv.writer(f)
             writer.writerow(["clock", "eval_bal", "eval_mig", "sum", "sums", "time", "total_time", "violation"])
-    
+
+        self.sampler = qmc.LatinHypercube(d=1, seed=42)
+
     def attach(self, simulation):
         self.simulation = simulation
         self.cluster = simulation.cluster
@@ -37,7 +40,8 @@ class Scheduler(object):
             start_of_time = time()
             end_of_time = self.env.now
 
-            value, eval_bal, eval_mig = algorithm(self.cluster, self.env.now, self.motivation_file)
+            # timeslot级别的算法调用，sampler需要在这里之前创建
+            value, eval_bal, eval_mig = algorithm(self.cluster, self.env.now, self.motivation_file, self.sampler)
             time_used = time() - start_of_time
             print(f"Algorithm execution time: {time_used:.2f}s")
 
